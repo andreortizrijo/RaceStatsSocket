@@ -14,12 +14,13 @@ server.bind(ADDR)
 
 def handle_client(connection, addr):
     print(f'[NEW CONNECTION] {addr} connected.')
-    client_connection = True
+    client_connected = True
     
-    while client_connection:
+    while client_connected:
         header_verify = True
         content_message = b''
         data = []
+        payload = {}
 
         while True:
             received_message = connection.recv(HEADER)
@@ -32,28 +33,31 @@ def handle_client(connection, addr):
 
             content_message += received_message
 
-            if len(content_message) - HEADER == received_message_length:                
-                content_message = pickle.loads(content_message[HEADER:])                
-                print(content_message)
+            if len(content_message) - HEADER == received_message_length:
+                content_message = pickle.loads(content_message[HEADER:])
+
                 if content_message == DISCONNECT_MESSAGE:
-                    client_connection = False
+                    client_connected = False
                     print(f'[{addr}] Client disconnected')
                     print(f'[{addr}] {content_message}')
+                    break
                 else:
                     data += content_message
 
                     if len(data) == 60*3:
-                        payload = json.dumps(data)
-                        #r = requests.post('http://192.168.1.22:8080/datahandler/senddata', data=payload)
-                        #r.status_code
+                        data = json.dumps(data)
+                        payload['data'] = data
+
+                        r = requests.post('http://192.168.1.22:8080/datahandler/senddata', data=payload)
 
                         data = []
+                        payload = {}
                         print(f'[{addr}] Data was send to the backend')
 
                 header_verify = True
                 content_message = b''
-
-    conn.close()
+    print(client_connected)
+    connection.close()
 
 def start():
     server.listen(QUEUE)
