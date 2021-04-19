@@ -3,7 +3,7 @@ import requests, json
 
 HEADER = 4096
 PORT = 8081
-SERVER = '192.168.1.22'
+SERVER = '192.168.1.38'
 ADDR = (SERVER, PORT)
 QUEUE = 5
 FORMAT = 'utf-8'
