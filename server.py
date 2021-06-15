@@ -2,12 +2,12 @@ import socket, threading, pickle
 import requests, json
 
 HEADER = 4096
+SERVER = '127.0.0.1'
 PORT = 8081
-SERVER = '192.168.1.38'
 ADDR = (SERVER, PORT)
-QUEUE = 5
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = '!DISCONNECT'
+QUEUE = 5
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR)
@@ -41,6 +41,16 @@ def handle_client(connection, addr):
                     print(f'[{addr}] Client disconnected')
                     print(f'[{addr}] {content_message}')
                     break
+
+                if 'SESSION_INFO' in content_message[0]:
+                    data = json.dumps(content_message)
+                    payload['data'] = data
+                    
+                    r = requests.post('http://127.0.0.1:8000/api-datahandler/upload', data=payload)
+                    
+                    data = []
+                    payload = {}
+
                 else:
                     data += content_message
 
@@ -48,7 +58,7 @@ def handle_client(connection, addr):
                         data = json.dumps(data)
                         payload['data'] = data
 
-                        r = requests.post('http://192.168.1.22:8080/datahandler/senddata', data=payload)
+                        r = requests.post('http://127.0.0.1:8000/api-datahandler/upload', data=payload)
 
                         data = []
                         payload = {}
@@ -56,7 +66,6 @@ def handle_client(connection, addr):
 
                 header_verify = True
                 content_message = b''
-    print(client_connected)
     connection.close()
 
 def start():
