@@ -17,56 +17,57 @@ def handle_client(connection, addr):
     client_connected = True
     
     while client_connected:
-        header_verify = True
-        content_message = b''
-        data = []
-        payload = {}
+        content_message = ''
+        get_lenght = True
+        chunks = []
+        bytes_recd = 0
 
         while True:
-            received_message = connection.recv(HEADER)
+            if get_lenght:
+                chunk = connection.recv(HEADER)
 
-            if header_verify == True and received_message.decode(FORMAT) != '':
-                received_message_length = int(received_message[:HEADER])
-                header_verify = False
+            if get_lenght == True and chunk.decode(FORMAT) != '':
+                MESSAGE_LENGHT = int(chunk[:HEADER])
+                get_lenght = False
             else:
-                header_verify = False
+                while bytes_recd < MESSAGE_LENGHT:
+                    chunk = connection.recv(min(MESSAGE_LENGHT - bytes_recd, HEADER))
 
-            content_message += received_message
+                    if chunk == b'':
+                        break
 
-            if len(content_message) - HEADER == received_message_length:
-                content_message = pickle.loads(content_message[HEADER:])
+                    chunks.append(chunk)
+                    bytes_recd = bytes_recd + len(chunk)
+
+                content_message = b''.join(chunks)
+                content_message = pickle.loads(content_message)
 
                 if content_message == DISCONNECT_MESSAGE:
                     client_connected = False
                     print(f'[{addr}] Client disconnected')
-                    print(f'[{addr}] {content_message}')
-                    break
+                    return
 
                 if 'SESSION_INFO' in content_message[0]:
-                    data = json.dumps(content_message)
-                    payload['data'] = data
-                    
-                    r = requests.post('http://127.0.0.1:8000/api-datahandler/upload', data=payload)
-                    
-                    data = []
-                    payload = {}
-
+                    upload_data = threading.Thread(target=send_data, args=([content_message]))
+                    upload_data.start()
                 else:
-                    data += content_message
 
-                    if len(data) == 60*3:
-                        data = json.dumps(data)
-                        payload['data'] = data
+                    upload_data = threading.Thread(target=send_data, args=([content_message]))
+                    upload_data.start()
 
-                        r = requests.post('http://127.0.0.1:8000/api-datahandler/upload', data=payload)
+                    print(f'[{addr}] Data was send to the backend')
 
-                        data = []
-                        payload = {}
-                        print(f'[{addr}] Data was send to the backend')
-
-                header_verify = True
-                content_message = b''
+                get_lenght = True
+                chunks = []
+                content_message = ''
+                bytes_recd = 0
+                
     connection.close()
+
+def send_data(data):
+    payload = {}
+    payload['data'] = json.dumps(data)
+    requests.post('http://127.0.0.1:8000/api-datahandler/upload', data=payload)
 
 def start():
     server.listen(QUEUE)
